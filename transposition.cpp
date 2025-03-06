@@ -5,79 +5,74 @@
 
 using namespace std;
 
-// Function to encrypt using columnar transposition
-string encrypt(const string& plaintext, const string& key) {
-    int keyLength = key.length();
-    int plaintextLength = plaintext.length();
+string encrypt(string plaintext, string key) {
+    int col = key.length();
+    int row = plaintext.length() / col;
+    if (plaintext.length() % col != 0) {
+        row++;
+    }
 
-    // Determine the number of rows needed
-    int numRows = (plaintextLength + keyLength - 1) / keyLength;
+    vector<vector<char>> matrix(row, vector<char>(col, ' ')); 
 
-    // Create a matrix to hold the plaintext characters
-    vector<vector<char>> matrix(numRows, vector<char>(keyLength, ' ')); // Initialize with spaces
+    for (int i = 0; i < plaintext.length(); ++i) {
+        matrix[i / col][i % col] = plaintext[i];
+    }
 
-    // Fill the matrix with the plaintext
-    int k = 0;
-    for (int i = 0; i < numRows; ++i) {
-        for (int j = 0; j < keyLength; ++j) {
-            if (k < plaintextLength) {
-                matrix[i][j] = plaintext[k++];
+    vector<pair<char, int>> key_order;
+    for (int i = 0; i < key.length(); ++i) {
+        key_order.push_back(make_pair(key[i], i));
+    }
+    sort(key_order.begin(), key_order.end());
+
+    string cipher = "";
+    for (auto const& [char_val, index] : key_order) {
+        for (int r = 0; r < row; ++r) {
+            if (matrix[r][index] != ' ') {
+                cipher += matrix[r][index];
+            } else {
+                cipher += 'Z';
             }
         }
     }
 
-    // Sort the key to determine the column order
-    string sortedKey = key;
-    sort(sortedKey.begin(), sortedKey.end());
-
-    // Read the matrix column by column based on the sorted key
-    string ciphertext = "";
-    for (char c : sortedKey) {
-        int colIndex = key.find(c);
-        for (int i = 0; i < numRows; ++i) {
-            ciphertext += matrix[i][colIndex];
-        }
-        key[colIndex] = '*'; // Mark the column as used to handle duplicate key characters
-    }
-
-    return ciphertext;
+    return cipher;
 }
 
-// Function to decrypt using columnar transposition
-string decrypt(const string& ciphertext, const string& key) {
-    int keyLength = key.length();
-    int ciphertextLength = ciphertext.length();
-    int numRows = (ciphertextLength + keyLength - 1) / keyLength;
+string decrypt(string cipher, string key) {
+    int col = key.length();
+    int row = cipher.length() / col;
 
-    // Create a matrix to hold the ciphertext characters
-    vector<vector<char>> matrix(numRows, vector<char>(keyLength, ' '));
+    vector<pair<char, int>> key_order;
+    for (int i = 0; i < key.length(); ++i) {
+        key_order.push_back(make_pair(key[i], i));
+    }
+    sort(key_order.begin(), key_order.end());
 
-    // Sort the key to determine the column order
-    string sortedKey = key;
-    sort(sortedKey.begin(), sortedKey.end());
-
-    // Fill the matrix column by column based on the sorted key
-    int k = 0;
-    string originalKey = key;  // Store the original key for index lookup
-    for (char c : sortedKey) {
-        int colIndex = originalKey.find(c);
-
-        for (int i = 0; i < numRows; ++i) {
-            if (k < ciphertextLength) {
-                matrix[i][colIndex] = ciphertext[k++];
-            }
-        }
-        originalKey[colIndex] = '*';  // Mark the column as used to handle duplicate key characters
+    vector<int> index_order;
+    for (auto const& [char_val, index] : key_order) {
+        index_order.push_back(index);
     }
 
-    // Read the matrix row by row to get the plaintext
-    string plaintext = "";
-    for (int i = 0; i < numRows; ++i) {
-        for (int j = 0; j < keyLength; ++j) {
-            if (matrix[i][j] != ' ') {
-                plaintext += matrix[i][j];
-            }
+    vector<vector<char>> matrix(row, vector<char>(col, ' '));
+
+    int idx = 0;
+    for (int i : index_order) {
+        for (int j = 0; j < row; ++j) {
+            matrix[j][i] = cipher[idx];
+            idx++;
         }
+    }
+
+    string plaintext = "";
+    for (int i = 0; i < row; ++i) {
+        for (int j = 0; j < col; ++j) {
+            plaintext += matrix[i][j];
+        }
+    }
+
+    // Remove trailing 'Z' characters
+    while (!plaintext.empty() && plaintext.back() == 'Z') {
+        plaintext.pop_back();
     }
 
     return plaintext;
@@ -86,17 +81,28 @@ string decrypt(const string& ciphertext, const string& key) {
 int main() {
     string plaintext, key;
 
-    cout << "Enter the plaintext: ";
+    cout << "Enter plaintext: ";
     getline(cin, plaintext);
-
-    cout << "Enter the key (e.g., 4312): ";
+    
+    //Remove spaces and convert to uppercase
+    string plaintext_no_spaces = "";
+    for (char c : plaintext){
+        if (c != ' ')
+            plaintext_no_spaces += toupper(c);
+    }
+    plaintext = plaintext_no_spaces;
+   
+    cout << "Enter key: ";
     getline(cin, key);
+    
+    //Convert key to uppercase
+    for (char & c : key) c = toupper(c);
 
-    string ciphertext = encrypt(plaintext, key);
-    cout << "Ciphertext: " << ciphertext << endl;
+    string cipher_text = encrypt(plaintext, key);
+    cout << "Encrypted: " << cipher_text << endl;
 
-    string decryptedText = decrypt(ciphertext, key);
-    cout << "Decrypted text: " << decryptedText << endl;
+    string decrypted_text = decrypt(cipher_text, key);
+    cout << "Decrypted: " << decrypted_text << endl;
 
     return 0;
 }
